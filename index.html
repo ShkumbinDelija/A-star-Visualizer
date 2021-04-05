@@ -5,7 +5,7 @@
     <meta name="viewport"
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Document</title>
+    <title>A* Visualizer</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
           integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
 </head>
@@ -15,7 +15,7 @@
         <div class="col-md-4">
             <h3 id="modes">><u>Select start node</u></h3>
             <button class="btn btn-sm btn-info text-white" id="start" onclick="findPath();" disabled>Start A*</button>
-            <button class="btn btn-sm btn-info text-white" id="restart" onclick="restart();startA();">Restart</button>
+            <button class="btn btn-sm btn-info text-white" id="restart" onclick="restart();start();">Restart</button>
         </div>
         <div class="col-md-8">
             <div class="row">
@@ -110,6 +110,7 @@
       }
       timeout += delay;
     });
+    if (!result.length) restartButton.disabled = false
     changeMode();
   }
 
@@ -137,17 +138,16 @@
     context.clearRect(0, 0, canvas.width, canvas.height);
   }
 
-  window.addEventListener('resize', resizeCanvas, false);
-
-  function resizeCanvas() {
+  resizeCanvas = () => {
     canvas.width = correctDivisor(Math.round((window.innerWidth - (canvas.offsetLeft * 2)) * 0.99), squareSize);
     canvas.height = correctDivisor(Math.round((window.innerHeight - canvas.offsetTop) * 0.99), squareSize);
     restart();
-    startA();
+    start();
   }
 
+  window.addEventListener('resize', resizeCanvas, false);
   resizeCanvas();
-  startA();
+  start();
 </script>
 </body>
 </html>

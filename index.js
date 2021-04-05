@@ -1,21 +1,4 @@
-function drawSquare(square) {
-  const p = square.point;
-  context.fillStyle = p.color;
-  context.fillRect(p.x, p.y, p.w, p.h);
-}
-
-drawGrid = () => squares.forEach(rowOfSquares => rowOfSquares.forEach(square => drawSquare(square)))
-
-function colorPoints(e) {
-  if (mode.current === '4') return;
-  let x = Math.floor((e.clientX - canvas.offsetLeft) / squareSize);
-  let y = Math.floor((e.clientY - canvas.offsetTop) / squareSize);
-  if ([startingNode, endingNode].includes(`${x},${y}`)) return
-  if (squares[x] && squares[x][y]) squares[x][y].point.color = window[`mode${mode.current}`](x, y, colorPoints)
-  drawGrid();
-}
-
-function startA() {
+start = () => {
   squares = [];
   for (let x = 0; x < canvas.width / squareSize; x++) {
     squares.push([]);
@@ -25,7 +8,29 @@ function startA() {
       drawSquare(square);
     }
   }
-  canvas.onclick = e => colorPoints(e)
+  canvas.onclick = event => fillSquaresWithColor(event)
+}
+
+drawSquare = square => {
+  const p = square.point;
+  context.fillStyle = p.color;
+  context.fillRect(p.x, p.y, p.w, p.h);
+}
+
+drawGrid = () => squares.forEach(rowOfSquares => rowOfSquares.forEach(square => drawSquare(square)))
+
+fillSquaresWithColor = event => {
+  if (mode.current === '4') return;
+  let x = Math.floor((event.clientX - canvas.offsetLeft) / squareSize);
+  let y = Math.floor((event.clientY - canvas.offsetTop) / squareSize);
+  if ([startingNode, endingNode].includes(`${x},${y}`)) return
+  if (squares[x] && squares[x][y]) squares[x][y].point.color = window[`mode${mode.current}`](x, y, fillSquaresWithColor)
+  drawGrid();
+}
+
+changeMode = () => {
+  mode = modes[mode.next];
+  $('#modes').innerHTML = mode.html;
 }
 
 mode1 = (x, y, _fn) => {
@@ -45,9 +50,4 @@ mode2 = (x, y, fn) => {
 mode3 = (x, y, _fn) => {
   barricades.push(`${x},${y}`);
   return '#000';
-}
-
-changeMode = () => {
-  mode = modes[mode.next];
-  $('#modes').innerHTML = mode.html;
 }
