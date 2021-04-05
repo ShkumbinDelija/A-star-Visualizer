@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+          integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+</head>
+<body style="background-color: #252525; color: white; margin-top: 10px;">
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-4">
+            <h3 id="modes">><u>Select start node</u></h3>
+            <button class="btn btn-sm btn-info text-white" id="start" onclick="findPath();" disabled>Start A*</button>
+            <button class="btn btn-sm btn-info text-white" id="restart" onclick="restart();startA();">Restart</button>
+        </div>
+        <div class="col-md-8">
+            <div class="row">
+                <div class="col-md-2">
+                    <label for="delay">Delay</label><input type="number" min="1" id="delay" value="50" step="10" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label for="squareSize">Square size</label><input type="number" class="form-control" id="squareSize" value="15">
+                </div>
+                <div class="col-md-2"></div>
+                <div class="col-md-2"></div>
+            </div>
+        </div>
+    </div>
+    <br>
+    <div style="height: 100%">
+        <canvas style="position: fixed;" id="canvas"></canvas>
+    </div>
+</div>
+<script src="Square.js"></script>
+<script src="Point.js"></script>
+<script src="index.js"></script>
+<script type='text/javascript' src='astar.js'></script>
+<script type='text/javascript'>
+  let modes = {
+    '0': {
+      next: '1'
+    },
+    '1': {
+      html: '><u>Select start node</u>',
+      previous: '4',
+      next: '2',
+      current: '1'
+    },
+    '2': {
+      html: '>><u>Select end node</u>',
+      previous: '1',
+      next: '3',
+      current: '2'
+    },
+    '3': {
+      html: '>>><u>Draw barricades</u>',
+      previous: '2',
+      next: '4',
+      current: '3'
+    },
+    '4': {
+      html: '>>>><u>Game ended</u>',
+      previous: '4',
+      next: '1',
+      current: '4'
+    },
+  };
+  let $ = document.querySelector.bind(document);
+  let startButton = $('#start');
+  let restartButton = $('#restart');
+  let mode = modes['0'];
+  changeMode();
+  let squareSize = 15;
+  let startingNode = null;
+  let endingNode = null;
+  let squares = [];
+  let barricades = [];
+  let canvas = $('#canvas');
+  let context = canvas.getContext('2d');
+
+  findPath = () => {
+    restartButton.disabled = true;
+    startButton.disabled = true;
+    let grid = [];
+    squares.forEach(rowOfSquares => grid.push(Array(rowOfSquares.length).fill(1)));
+    barricades.forEach(barricade => {
+      let [x, y] = barricade.split(',');
+      grid[x][y] = 0;
+    });
+    const graph = new Graph(grid);
+    const [startX, startY] = startingNode.split(',');
+    const [endX, endY] = endingNode.split(',');
+    const startingSquare = graph.grid[startX][startY];
+    const endingSquare = graph.grid[endX][endY];
+    const result = astar.search(graph, startingSquare, endingSquare);
+    let timeout = 0;
+    let delay = parseInt($('#delay').value);
+    result.forEach((node, index) => {
+      let lastIteration = index === result.length - 2;
+      if (index !== result.length - 1) {
+        setTimeout(() => {
+          squares[node.x][node.y].point.color = '#17a2b8';
+          drawGrid();
+          if (lastIteration) restartButton.disabled = false
+        }, timeout);
+      }
+      timeout += delay;
+    });
+    changeMode();
+  }
+
+  $('#squareSize').onchange = (el) => {
+    squareSize = el.target.value;
+    resizeCanvas();
+  }
+
+  correctDivisor = (n, d) => {
+    for (; n >= 0; n--) {
+      if (n % d === 0) {
+        return n;
+      }
+    }
+  }
+
+  restart = () => {
+    mode = modes['0'];
+    changeMode();
+    startButton.disabled = true;
+    startingNode = null;
+    endingNode = null;
+    squares = [];
+    barricades = [];
+    context.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  window.addEventListener('resize', resizeCanvas, false);
+
+  function resizeCanvas() {
+    canvas.width = correctDivisor(Math.round((window.innerWidth - (canvas.offsetLeft * 2)) * 0.99), squareSize);
+    canvas.height = correctDivisor(Math.round((window.innerHeight - canvas.offsetTop) * 0.99), squareSize);
+    restart();
+    startA();
+  }
+
+  resizeCanvas();
+  startA();
+</script>
+</body>
+</html>
