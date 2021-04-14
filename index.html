@@ -9,25 +9,15 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
           integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
 </head>
-<body style="background-color: #252525; color: white; margin-top: 10px;">
+<body style="background-color: rgba(37,37,37,0.49); color: white; margin-top: 10px;">
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-4">
-            <h3 id="modes">><u>Select start node</u></h3>
+            <h3 id="modes"></h3>
             <button class="btn btn-sm btn-info text-white" id="start" onclick="findPath();" disabled>Start A*</button>
-            <button class="btn btn-sm btn-info text-white" id="restart" onclick="restart();start();">Restart</button>
-        </div>
-        <div class="col-md-8">
-            <div class="row">
-                <div class="col-md-2">
-                    <label for="delay">Delay</label><input type="number" min="1" id="delay" value="50" step="10" class="form-control">
-                </div>
-                <div class="col-md-3">
-                    <label for="squareSize">Square size</label><input type="number" class="form-control" id="squareSize" value="15">
-                </div>
-                <div class="col-md-2"></div>
-                <div class="col-md-2"></div>
-            </div>
+            <button class="btn btn-sm btn-info text-white" id="restart" onclick="restart();drawCanvas();">Restart
+            </button>
+            <label for="nodeSize">Node size</label> <input type="number" id="nodeSize" style="width: 50px;" value="15">
         </div>
     </div>
     <br>
@@ -35,87 +25,233 @@
         <canvas style="position: fixed;" id="canvas"></canvas>
     </div>
 </div>
-<script src="Square.js"></script>
-<script src="Point.js"></script>
-<script src="index.js"></script>
-<script type='text/javascript' src='astar.js'></script>
 <script type='text/javascript'>
+
   let modes = {
-    '0': {
-      next: '1'
-    },
-    '1': {
-      html: '><u>Select start node</u>',
-      previous: '4',
-      next: '2',
-      current: '1'
-    },
-    '2': {
-      html: '>><u>Select end node</u>',
-      previous: '1',
-      next: '3',
-      current: '2'
-    },
-    '3': {
-      html: '>>><u>Draw barricades</u>',
-      previous: '2',
-      next: '4',
-      current: '3'
-    },
-    '4': {
-      html: '>>>><u>Game ended</u>',
-      previous: '4',
-      next: '1',
-      current: '4'
-    },
+    '0': { next: '1' },
+    '1': { html: '><u>Select start node</u>', previous: '4', next: '2', current: '1' },
+    '2': { html: '>><u>Select end node</u>', previous: '1', next: '3', current: '2' },
+    '3': { html: '>>><u>Draw barricades</u>', previous: '2', next: '4', current: '3' },
+    '4': { html: '>>>><u>Game ended</u>', previous: '4', next: '1', current: '4' },
   };
   let $ = document.querySelector.bind(document);
   let startButton = $('#start');
   let restartButton = $('#restart');
+  let nodeSizeInput = $('#nodeSize');
   let mode = modes['0'];
-  changeMode();
-  let squareSize = 15;
+  let nodeSize = 15;
   let startingNode = null;
+  let openNodes = [];
   let endingNode = null;
-  let squares = [];
-  let barricades = [];
+  let nodes = [];
   let canvas = $('#canvas');
   let context = canvas.getContext('2d');
+  let previouslyHoveredNode = null;
+  let barricades = [];
+  let openNodeIds = [];
+
+  function Node(x, y, color, calcX, calcY, calcH, calcW) {
+    this.id = `${x}-${y}`;
+    this.x = x;
+    this.y = y;
+    this.color = color;
+    this.isClosed = false;
+    this.f = Infinity;
+    this.g = Infinity;
+    this.h = Infinity;
+    this.neighbors = [];
+    this.parent = null;
+    this.calculatedX = calcX;
+    this.calculatedY = calcY;
+    this.calculatedHeight = calcH;
+    this.calculatedWidth = calcW;
+  }
+
+  hover = event => {
+    let x = Math.floor((event.clientX - canvas.offsetLeft) / nodeSize);
+    let y = Math.floor((event.clientY - canvas.offsetTop) / nodeSize);
+    if (nodes[x] && nodes[x][y]) {
+      let currentNode = nodes[x][y];
+      if (mode.current === '4' || ['#0000FF', '#ff000a', '#000'].includes(currentNode.color)) return
+      const colors = { '1': '#3b3bc4', '2': '#f4838e', '3': '#444' }
+      if (previouslyHoveredNode) {
+        const [xx, yy] = previouslyHoveredNode.split(',');
+        if (nodes[xx] && nodes[xx][yy]) {
+          let previousNode = nodes[xx][yy];
+          if (['#3b3bc4', '#f4838e', '#444'].includes(previousNode.color)) {
+            previousNode.color = '#EEFAFF';
+            drawNode(previousNode);
+          }
+        }
+      }
+      previouslyHoveredNode = `${x},${y}`;
+      currentNode.color = colors[mode.current];
+      drawNode(currentNode);
+    }
+  }
+
+  drawNode = node => {
+    context.fillStyle = node.color;
+    context.fillRect(node.calculatedX, node.calculatedY, node.calculatedWidth, node.calculatedHeight);
+  }
+
+  drawGrid = () => nodes.forEach(rowOfNodes => rowOfNodes.forEach(node => drawNode(node)))
+
+  fillNodesWithColor = event => {
+    if (mode.current === '4') return;
+    let x = Math.floor((event.clientX - canvas.offsetLeft) / nodeSize);
+    let y = Math.floor((event.clientY - canvas.offsetTop) / nodeSize);
+    if ((startingNode && endingNode) && [startingNode.id, endingNode.id].includes(`${x}-${y}`)) return
+    if (nodes[x] && nodes[x][y]) {
+      nodes[x][y].color = window[`mode${mode.current}`](x, y, fillNodesWithColor);
+      drawNode(nodes[x][y]);
+    }
+  }
+
+  (changeMode = () => {
+    mode = modes[mode.next];
+    $('#modes').innerHTML = mode.html;
+  })();
+
+  mode1 = (x, y, _fn) => {
+    startingNode = nodes[x][y];
+    changeMode();
+    return '#0000FF';
+  }
+
+  mode2 = (x, y, fn) => {
+    endingNode = nodes[x][y];
+    changeMode();
+    canvas.onmousemove = e => {
+      if (e.shiftKey) fn(e);
+      hover(e);
+    };
+    startButton.disabled = false;
+    return '#ff000a';
+  }
+
+  mode3 = (x, y, _fn) => {
+    barricades.push(`${x},${y}`);
+    return '#000';
+  }
+
+  removeOpenNode = (node) => {
+    for (let i = 0; i < openNodes.length; i++) {
+      if (node.id === openNodes[i].id) {
+        openNodes.splice(i, 1);
+        openNodeIds.splice(openNodeIds.indexOf(node.id), 1);
+        break;
+      }
+    }
+  }
+
+  colorNode = (node, color, timeout) => {
+    if (node.color === color) return;
+    setTimeout(() => {
+      if (startingNode.id !== node.id && endingNode.id !== node.id) {
+        node.color = color;
+        drawNode(node);
+      }
+    }, timeout);
+  }
 
   findPath = () => {
     restartButton.disabled = true;
     startButton.disabled = true;
-    let grid = [];
-    squares.forEach(rowOfSquares => grid.push(Array(rowOfSquares.length).fill(1)));
-    barricades.forEach(barricade => {
-      let [x, y] = barricade.split(',');
-      grid[x][y] = 0;
-    });
-    const graph = new Graph(grid);
-    const [startX, startY] = startingNode.split(',');
-    const [endX, endY] = endingNode.split(',');
-    const startingSquare = graph.grid[startX][startY];
-    const endingSquare = graph.grid[endX][endY];
-    const result = astar.search(graph, startingSquare, endingSquare);
+    nodeSizeInput.disabled = true;
+    let delay = 50;
     let timeout = 0;
-    let delay = parseInt($('#delay').value);
-    result.forEach((node, index) => {
-      let lastIteration = index === result.length - 2;
-      if (index !== result.length - 1) {
-        setTimeout(() => {
-          squares[node.x][node.y].point.color = '#17a2b8';
-          drawGrid();
-          if (lastIteration) restartButton.disabled = false
-        }, timeout);
+    let foundSolution = false;
+    startingNode.g = 0;
+    openNodes.push(startingNode);
+    openNodeIds.push(startingNode.id);
+    while (openNodes.length) {
+      let current = openNodes.sort((a, b) => (a.h > b.h) ? 1 : ((b.h > a.h) ? -1 : 0))[0];
+      removeOpenNode(current);
+      if (current.id === endingNode.id) {
+        foundSolution = true;
+        break;
       }
-      timeout += delay;
-    });
-    if (!result.length) restartButton.disabled = false
+      colorNode(current, '#fc870a', timeout);
+      current.isClosed = true;
+      if (current.neighbors.length === 0) {
+        const [x, y] = [current.x, current.y];
+        current.neighbors = [
+          selectNode(x + 1, y), selectNode(x, y - 1),
+          selectNode(x - 1, y), selectNode(x, y + 1),
+          selectNode(x - 1, y - 1), selectNode(x + 1, y - 1),
+          selectNode(x - 1, y + 1), selectNode(x + 1, y + 1)
+        ];
+      }
+      for (let i = 0; i < current.neighbors.length; i++) {
+        let neighbor = current.neighbors[i];
+        let newPath = false;
+        if (neighbor && !neighbor.isClosed) {
+          let tentativeG = current.g + 1;
+          if (openNodeIds.includes(neighbor.id)) {
+            newPath = tentativeG < neighbor.g;
+          } else {
+            newPath = true;
+            openNodes.push(neighbor);
+            openNodeIds.push(neighbor.id);
+          }
+          colorNode(neighbor, '#00FF00', timeout);
+          if (newPath) {
+            neighbor.g = tentativeG;
+            neighbor.parent = current;
+            neighbor.h = Math.abs((neighbor.x - endingNode.x)) + Math.abs((neighbor.y - endingNode.y));
+            neighbor.f = neighbor.g + neighbor.h;
+          }
+        }
+      }
+      timeout += (delay *= .9);
+    }
+    if (foundSolution) {
+      let reverseNode = endingNode.parent;
+      let winningNodes = [];
+      while (reverseNode !== startingNode) {
+        winningNodes.push(reverseNode);
+        reverseNode = reverseNode.parent;
+      }
+      setTimeout(() => {
+        winningNodes.forEach(node => {
+          node.color = '#fff';
+          drawNode(node);
+        });
+      }, timeout + 500);
+      setTimeout(() => {
+        winningNodes.forEach(node => {
+          node.color = '#00bcd4';
+          drawNode(node);
+        });
+      }, timeout + 1000);
+    }
+    setTimeout(() => {
+      restartButton.disabled = false;
+      nodeSizeInput.disabled = false;
+    }, timeout + 1000);
     changeMode();
   }
 
-  $('#squareSize').onchange = (el) => {
-    squareSize = el.target.value;
+  selectNode = (x, y) => {
+    if (nodes[x] && nodes[x][y]) {
+      if (barricades.includes(`${x},${y}`)) return undefined
+      if (
+        (barricades.includes(`${x},${y - 1}`) && barricades.includes(`${x - 1},${y}`)) ||
+        (barricades.includes(`${x},${y - 1}`) && barricades.includes(`${x + 1},${y}`)) ||
+        (barricades.includes(`${x - 1},${y}`) && barricades.includes(`${x},${y + 1}`)) ||
+        (barricades.includes(`${x},${y + 1}`) && barricades.includes(`${x + 1},${y}`))
+      ) {
+        return undefined;
+      }
+      return nodes[x][y];
+    } else {
+      return undefined;
+    }
+  }
+
+  nodeSizeInput.onchange = (el) => {
+    nodeSize = el.target.value;
     resizeCanvas();
   }
 
@@ -128,26 +264,40 @@
   }
 
   restart = () => {
+    openNodes = [];
+    openNodeIds = [];
     mode = modes['0'];
     changeMode();
     startButton.disabled = true;
     startingNode = null;
     endingNode = null;
-    squares = [];
+    nodes = [];
     barricades = [];
     context.clearRect(0, 0, canvas.width, canvas.height);
   }
 
-  resizeCanvas = () => {
-    canvas.width = correctDivisor(Math.round((window.innerWidth - (canvas.offsetLeft * 2)) * 0.99), squareSize);
-    canvas.height = correctDivisor(Math.round((window.innerHeight - canvas.offsetTop) * 0.99), squareSize);
-    restart();
-    start();
+  drawCanvas = () => {
+    nodes = [];
+    for (let x = 0; x < canvas.width / nodeSize; x++) {
+      nodes.push([]);
+      for (let y = 0; y < canvas.height / nodeSize; y++) {
+        const node = new Node(x, y, '#EEFAFF', x * nodeSize, y * nodeSize, nodeSize - 1, nodeSize - 1);
+        nodes[x].push(node);
+        drawNode(node);
+      }
+    }
+    canvas.onclick = event => fillNodesWithColor(event);
+    canvas.onmousemove = event => hover(event)
   }
 
+  (resizeCanvas = () => {
+    canvas.width = correctDivisor(Math.round((window.innerWidth - (canvas.offsetLeft * 2)) * 0.99), nodeSize);
+    canvas.height = correctDivisor(Math.round((window.innerHeight - canvas.offsetTop) * 0.99), nodeSize);
+    restart();
+    drawCanvas();
+  })();
+
   window.addEventListener('resize', resizeCanvas, false);
-  resizeCanvas();
-  start();
 </script>
 </body>
 </html>
