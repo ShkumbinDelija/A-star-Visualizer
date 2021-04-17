@@ -177,10 +177,10 @@
       if (current.neighbors.length === 0) {
         const [x, y] = [current.x, current.y];
         current.neighbors = [
-          selectNode(x + 1, y), selectNode(x, y - 1),
-          selectNode(x - 1, y), selectNode(x, y + 1),
-          selectNode(x - 1, y - 1), selectNode(x + 1, y - 1),
-          selectNode(x - 1, y + 1), selectNode(x + 1, y + 1)
+          selectNode(current, x + 1, y), selectNode(current, x, y - 1),
+          selectNode(current, x - 1, y), selectNode(current, x, y + 1),
+          selectNode(current, x - 1, y - 1), selectNode(current, x + 1, y - 1),
+          selectNode(current, x - 1, y + 1), selectNode(current, x + 1, y + 1)
         ];
       }
       for (let i = 0; i < current.neighbors.length; i++) {
@@ -233,14 +233,14 @@
     changeMode();
   }
 
-  selectNode = (x, y) => {
+  selectNode = (parent, x, y) => {
     if (nodes[x] && nodes[x][y]) {
       if (barricades.includes(`${x},${y}`)) return undefined
       if (
-        (barricades.includes(`${x},${y - 1}`) && barricades.includes(`${x - 1},${y}`)) ||
-        (barricades.includes(`${x},${y - 1}`) && barricades.includes(`${x + 1},${y}`)) ||
-        (barricades.includes(`${x - 1},${y}`) && barricades.includes(`${x},${y + 1}`)) ||
-        (barricades.includes(`${x},${y + 1}`) && barricades.includes(`${x + 1},${y}`))
+        (parent.x === x - 1 && parent.y === y + 1 && barricades.includes(`${x - 1},${y}`) && barricades.includes(`${x},${y + 1}`)) ||
+        (parent.x === x - 1 && parent.y === y - 1 && barricades.includes(`${x - 1},${y}`) && barricades.includes(`${x},${y - 1}`)) ||
+        (parent.x === x + 1 && parent.y === y - 1 && barricades.includes(`${x},${y - 1}`) && barricades.includes(`${x + 1},${y}`)) ||
+        (parent.x === x + 1 && parent.y === y + 1 && barricades.includes(`${x},${y + 1}`) && barricades.includes(`${x + 1},${y}`))
       ) {
         return undefined;
       }
